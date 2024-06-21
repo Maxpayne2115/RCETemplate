@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCE Creator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .requirements {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .button-group {
+            text-align: center;
+        }
+        .button-group button {
+            padding: 10px 20px;
+            margin: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RCE Creator</h1>
+        <div id="formSection">
+            <div class="form-group">
+                <label for="projectId">Project ID</label>
+                <input type="text" id="projectId" required>
+            </div>
+            <div class="form-group">
+                <label for="projectName">Project Name</label>
+                <input type="text" id="projectName" required>
+            </div>
+            <div class="form-group">
+                <label for="clientName">Client Name</label>
+                <input type="text" id="clientName" required>
+            </div>
+            <div class="form-group">
+                <label for="applications">Applications</label>
+                <textarea id="applications" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Requirements</label>
+                <div id="requirementsContainer">
+                    <!-- Requirements tables will be added dynamically here -->
+                </div>
+                <button type="button" onclick="addRequirement()">Add Requirement</button>
+            </div>
+            <div class="button-group">
+                <button type="button" onclick="submitForm()">Submit</button>
+            </div>
+        </div>
+
+        <div id="tableSection" class="hidden">
+            <h2>Submitted Data</h2>
+            <table id="submittedDataTable">
+                <thead>
+                    <tr>
+                        <th>Input Field</th>
+                        <th>Input Value</th>
+                    </tr>
+                </thead>
+                <tbody id="submittedDataBody"></tbody>
+            </table>
+            <div class="button-group">
+                <button onclick="generateFiles('excel')">Generate Excel</button>
+                <button onclick="generateFiles('word')">Generate Word</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let requirementIndex = 0;
+
+        function addRequirement() {
+            requirementIndex++;
+            const requirementsContainer = document.getElementById('requirementsContainer');
+
+            const requirementTable = document.createElement('table');
+            requirementTable.className = 'requirements';
+            requirementTable.id = `requirementTable${requirementIndex}`;
+            requirementTable.innerHTML = `
+                <tr>
+                    <th>Requirement F${requirementIndex}</th>
+                    <td><input type="text" id="requirement-${requirementIndex}-input" maxlength="9000" required></td>
+                </tr>
+            `;
+
+            requirementsContainer.appendChild(requirementTable);
+        }
+
+        function submitForm() {
+            const projectId = document.getElementById('projectId').value;
+            const projectName = document.getElementById('projectName').value;
+            const clientName = document.getElementById('clientName').value;
+            const applications = document.getElementById('applications').value;
+
+            const submittedDataBody = document.getElementById('submittedDataBody');
+            const rows = [];
+
+            rows.push(`<tr><td>Project ID</td><td>${projectId}</td></tr>`);
+            rows.push(`<tr><td>Project Name</td><td>${projectName}</td></tr>`);
+            rows.push(`<tr><td>Client Name</td><td>${clientName}</td></tr>`);
+            rows.push(`<tr><td>Applications</td><td>${applications}</td></tr>`);
+
+            for (let i = 1; i <= requirementIndex; i++) {
+                const requirementInput = document.getElementById(`requirement-${i}-input`).value;
+                rows.push(`<tr><td>Requirement F${i}</td><td>${requirementInput}</td></tr>`);
+            }
+
+            submittedDataBody.innerHTML = rows.join('');
+
+            document.getElementById('formSection').classList.add('hidden');
+            document.getElementById('tableSection').classList.remove('hidden');
+        }
+
+        async function generateFiles(fileType) {
+            const projectId = document.getElementById('projectId').value;
+            const projectName = document.getElementById('projectName').value;
+            const clientName = document.getElementById('clientName').value;
+            const applications = document.getElementById('applications').value;
+            const requirements = [];
+
+            for (let i = 1; i <= requirementIndex; i++) {
+                const requirementInput = document.getElementById(`requirement-${i}-input`).value;
+                requirements.push(`F${i}: ${requirementInput}`);
+            }
+
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId, projectName, clientName, applications, requirements, fileType
+                })
+            });
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `project.${fileType === 'excel' ? 'xlsx' : 'docx'}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+    </script>
+</body>
+</html>
